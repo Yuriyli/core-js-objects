@@ -382,33 +382,193 @@ function group(array, keySelector, valueSelector) {
  *  For more examples see unit tests.
  */
 
+class CssSelectorChainNode {
+  constructor(prevNode = null) {
+    this.prevNode = prevNode;
+    this.value = null;
+
+    if (prevNode) {
+      this.elementMem = prevNode.elementMem;
+      this.idMem = prevNode.idMem;
+      this.classMem = prevNode.classMem;
+      this.attrMem = prevNode.attrMem;
+      this.pseudoClassMem = prevNode.pseudoClassMem;
+      this.pseudoElementMem = prevNode.pseudoElementMem;
+    } else {
+      this.elementMem = 0;
+      this.idMem = 0;
+      this.classMem = 0;
+      this.attrMem = 0;
+      this.pseudoClassMem = 0;
+      this.pseudoElementMem = 0;
+    }
+  }
+
+  #addElementMem() {
+    if (
+      this.idMem > 0 ||
+      this.classMem > 0 ||
+      this.attrMem > 0 ||
+      this.pseudoClassMem > 0 ||
+      this.pseudoElementMem > 0
+    ) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    if (this.elementMem > 0) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    } else {
+      this.elementMem += 1;
+    }
+  }
+
+  #addIdMem() {
+    if (
+      this.classMem > 0 ||
+      this.attrMem > 0 ||
+      this.pseudoClassMem > 0 ||
+      this.pseudoElementMem > 0
+    ) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    if (this.idMem > 0) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    } else {
+      this.idMem += 1;
+    }
+  }
+
+  #addClassMem() {
+    if (
+      this.attrMem > 0 ||
+      this.pseudoClassMem > 0 ||
+      this.pseudoElementMem > 0
+    ) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    this.classMem += 1;
+  }
+
+  #addAttrMem() {
+    if (this.pseudoClassMem > 0 || this.pseudoElementMem > 0) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    this.attrMem += 1;
+  }
+
+  #addPseudoClassMem() {
+    if (this.pseudoElementMem > 0) {
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    }
+    this.pseudoClassMem += 1;
+  }
+
+  #addPseudoElementMem() {
+    if (this.pseudoElementMem > 0) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more than one time inside the selector'
+      );
+    } else {
+      this.pseudoElementMem += 1;
+    }
+  }
+
+  stringify() {
+    const result = [];
+    let prev = this.prevNode;
+    while (prev) {
+      result.push(prev.value);
+      prev = prev.prevNode;
+    }
+    result.reverse();
+    return result.join('');
+  }
+
+  element(value) {
+    this.value = value;
+    this.#addElementMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+
+  id(value) {
+    this.value = `#${value}`;
+    this.#addIdMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+
+  class(value) {
+    this.value = `.${value}`;
+    this.#addClassMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+
+  attr(value) {
+    this.value = `[${value}]`;
+    this.#addAttrMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+
+  pseudoClass(value) {
+    this.value = `:${value}`;
+    this.#addPseudoClassMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+
+  pseudoElement(value) {
+    this.value = `::${value}`;
+    this.#addPseudoElementMem();
+    return new CssSelectorChainNode(this, this.selectorMemory);
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    return new CssSelectorChainNode().element(value);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    return new CssSelectorChainNode().id(value);
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    return new CssSelectorChainNode().class(value);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    return new CssSelectorChainNode().attr(value);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    return new CssSelectorChainNode().pseudoClass(value);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value) {
+    return new CssSelectorChainNode().pseudoElement(value);
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    const result = selector2;
+    const combSelector = new CssSelectorChainNode(selector1);
+    combSelector.value = ` ${combinator} `;
+    let firstNode = selector2;
+    while (firstNode.prevNode) {
+      firstNode = firstNode.prevNode;
+    }
+    firstNode.prevNode = combSelector;
+    return result;
   },
 };
 
